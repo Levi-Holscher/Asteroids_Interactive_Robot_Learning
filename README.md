@@ -45,7 +45,9 @@ python play.py --no-record                    # just practise
 - **Ranking:** wins beat losses → fewer hits always beat more hits (hit "tiers") → lower score.
   `score = 0.5·time/10 + 0.5·fuel/2` (weights and reference values are in `config.py`).
 - **Fuel** = seconds of main-thruster burn, plus a small cost per rotation step.
-- **Field:** 1.6 wide × 3.0 tall.
+- **Field:** 1.6 wide × 3.0 tall, plus a visible margin outside the walls (20% of the
+  width on every side) so you can see asteroids coming before they enter. Asteroids
+  spawn beyond that margin.
 - **Physics:** constant thrust, no gravity, no ship mass, optional drag. The speed cap is
   on by default; a straight full-speed crossing takes about 7.3 s. Asteroids move with
   constant acceleration, keep streaming in from the sides and the top, and **bounce off
@@ -100,7 +102,7 @@ game/settings.py     settings snapshot / overrides
 tests/test_sim.py    python -m pytest -q
 ```
 
-Driving the game from code (roughly 800–2000× real time with no window, depending on difficulty):
+Driving the game from code (roughly 300–1000× real time with no window, depending on difficulty):
 
 ```python
 from game import AsteroidGame, Action, ACTIONS, default_settings
@@ -113,6 +115,8 @@ print(g.outcome, g.hits, g.t, g.fuel, g.score())
 
 ## Version history
 
+- **0.3.0**: visible margin around the walls (asteroids are seen before they enter);
+  about 30% more asteroids at every difficulty.
 - **0.2.0**: field 1.6 × 3.0 (taller, narrower); more, smaller asteroids; asteroids bounce
   off each other; hit asteroids become harmless "spent" rocks instead of disappearing.
 - **0.1.0**: first playable version.

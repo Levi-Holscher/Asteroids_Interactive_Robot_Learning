@@ -32,6 +32,10 @@ GOAL_GATE = None
 # GOAL_GATE = (0.8, 0.5)     # example: centered gate, 0.5 wu wide
 # GOAL_GATE = (1.15, 0.4)    # example: offset gate
 
+# Visible area outside the walls on every side, as a fraction of FIELD_WIDTH.
+# Asteroids spawn beyond this margin, so you can see them coming before they enter.
+VIEW_MARGIN_FRAC = 0.20
+
 # Edges that end the run as "out of bounds" when touched
 BOTTOM_IS_WALL = True        # left and right are always walls
 
@@ -54,7 +58,7 @@ LINEAR_DRAG = 0.0            # per-second velocity damping (0 = none, 0.3 = noti
 ROTATION_MODE = "step"
 ROTATE_STEP_DEG = 22.5       # step mode: degrees per tap (22.5 -> 16 headings)
 ROTATE_STEP_TICKS = 2        # step mode: ticks a step takes to complete (the two bursts)
-ROTATE_REPEAT_TICKS = 4      # step mode: when held, a new step every N ticks
+ROTATE_REPEAT_TICKS = 2      # step mode: when held, a new step every N ticks
 ROTATE_RATE_DEG = 180.0      # continuous mode: deg/s
 ROTATE_ACCEL_DEG = 360.0     # momentum mode: deg/s^2
 ROTATE_MAX_RATE_DEG = 360.0  # momentum mode: spin-rate cap
@@ -93,32 +97,34 @@ REF_FUEL = 2.0
 # seed always produces the same asteroids.
 DIFFICULTIES = {
     "easy": dict(
-        n_start=20, spawn_per_sec=1.6,
+        n_start=26, spawn_per_sec=2.1,
         speed_min=0.08, speed_max=0.20, accel_max=0.02,
         radius_min=0.025, radius_max=0.050, top_spawn_frac=0.15,
     ),
     "medium": dict(
-        n_start=32, spawn_per_sec=2.8,
+        n_start=42, spawn_per_sec=3.6,
         speed_min=0.10, speed_max=0.28, accel_max=0.03,
         radius_min=0.022, radius_max=0.055, top_spawn_frac=0.2,
     ),
     "hard": dict(
-        n_start=48, spawn_per_sec=4.5,
+        n_start=62, spawn_per_sec=5.9,
         speed_min=0.12, speed_max=0.36, accel_max=0.04,
         radius_min=0.020, radius_max=0.060, top_spawn_frac=0.25,
     ),
 }
 DEFAULT_DIFFICULTY = "medium"
+# n_start is how many asteroids start INSIDE the walls; the visible margin outside the
+# walls is filled at the same density so nothing pops in next to you.
 START_SAFE_RADIUS = 0.35     # no asteroid starts within this distance of START_POS
 VERTICAL_SPEED_FRAC = 0.35   # side spawns: max vertical speed as a fraction of horizontal
-ASTEROID_DESPAWN_MARGIN = 0.3  # removed once this far outside the field
+ASTEROID_DESPAWN_MARGIN = 0.15  # removed once this far beyond the visible margin
 ASTEROID_COLLISIONS = True   # asteroids bounce off each other
 ASTEROID_RESTITUTION = 1.0   # 1.0 = perfectly elastic bounce, 0.5 = loses energy
 
 # ----------------------------------------------------------------------------
 # Display
 # ----------------------------------------------------------------------------
-PIXELS_PER_UNIT = 260        # window field size = FIELD * this (lower it if the window is too tall)
+PIXELS_PER_UNIT = 210        # window size = (FIELD + 2*margin) * this (lower it if the window is too tall)
 HUD_WIDTH = 260              # px panel on the right
 SHOW_ASTEROID_IDS = False
 SHOW_VELOCITY_VECTOR = True

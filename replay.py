@@ -116,6 +116,7 @@ def main(argv=None):
         r.draw_field()
         r.draw_trail([(s["ship"]["x"], s["ship"]["y"]) for s in states[: i + 1]])
         r.draw_asteroids(st["asteroids"], config.SHOW_ASTEROID_IDS)
+        r.draw_walls()
         r.draw_ship(st["ship"], thrusting=bool(step["action_thrust"]),
                     invulnerable=st["invulnerable"], t=st["t"])
         turn = step["action_turn"]

@@ -182,6 +182,7 @@ class App:
         r.draw_field()
         r.draw_trail(self.trail)
         r.draw_asteroids(st["asteroids"], config.SHOW_ASTEROID_IDS)
+        r.draw_walls()
         r.draw_ship(st["ship"], thrusting=st.get("thrust", False) and self.mode == "playing",
                     invulnerable=st["invulnerable"], t=st["t"], show_vel=config.SHOW_VELOCITY_VECTOR)
 

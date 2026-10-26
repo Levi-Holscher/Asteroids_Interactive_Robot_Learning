@@ -17,7 +17,7 @@ from typing import List, Optional
 
 from game.settings import default_settings
 
-GAME_VERSION = "0.2.0"
+GAME_VERSION = "0.3.0"
 
 # Outcomes
 RUNNING = "running"
@@ -73,6 +73,7 @@ class AsteroidField:
         self.W = s["FIELD_WIDTH"]
         self.H = s["FIELD_HEIGHT"]
         self.dt = 1.0 / s["TICK_HZ"]
+        self.vm = s["VIEW_MARGIN_FRAC"] * self.W   # visible margin outside the walls
         self.next_id = 1
         self.asteroids: List[Asteroid] = []
         self._initial_field()
@@ -95,12 +96,16 @@ class AsteroidField:
     def _initial_field(self):
         sx, sy = self.s["START_POS"]
         safe = self.s["START_SAFE_RADIUS"]
+        vm = self.vm
+        # n_start is the count inside the walls; fill the visible margin at the same density
+        area_ratio = ((self.W + 2 * vm) * (self.H + 2 * vm)) / (self.W * self.H)
+        target = int(round(self.d["n_start"] * area_ratio))
         placed, tries = 0, 0
-        while placed < self.d["n_start"] and tries < 20000:
+        while placed < target and tries < 40000:
             tries += 1
             r = self._radius()
-            x = self.rng.uniform(r, self.W - r)
-            y = self.rng.uniform(r, self.H - r)
+            x = self.rng.uniform(-vm + r, self.W + vm - r)
+            y = self.rng.uniform(-vm + r, self.H + vm - r)
             if math.hypot(x - sx, y - sy) < safe + r or self._overlaps(x, y, r):
                 continue
             vx, vy, ax, ay = self._side_motion(self.rng.choice((-1, 1)))
@@ -136,11 +141,11 @@ class AsteroidField:
                 vy = -0.7 * sp
                 ax = self.rng.uniform(-0.5, 0.5) * self.d["accel_max"]
                 ay = -self.rng.uniform(0, 0.5) * self.d["accel_max"]
-                self._new(t, x, self.H + r, vx, vy, ax, ay, r)
+                self._new(t, x, self.H + self.vm + r, vx, vy, ax, ay, r)
             else:
                 side = self.rng.choice((-1, 1))   # -1 = from left edge, +1 = from right edge
-                x = -r if side == -1 else self.W + r
-                y = self.rng.uniform(0.25 * self.H, self.H - r)
+                x = -self.vm - r if side == -1 else self.W + self.vm + r
+                y = self.rng.uniform(0.25 * self.H, self.H + self.vm - r)
                 vx, vy, ax, ay = self._side_motion(-side)  # move into the field
                 self._new(t, x, y, vx, vy, ax, ay, r)
 
@@ -201,7 +206,7 @@ class AsteroidField:
                 break
 
     def despawn(self):
-        m = self.s["ASTEROID_DESPAWN_MARGIN"]
+        m = self.vm + self.s["ASTEROID_DESPAWN_MARGIN"]
         self.asteroids = [a for a in self.asteroids
                           if -m - a.r <= a.x <= self.W + m + a.r
                           and -m - a.r <= a.y <= self.H + m + a.r]

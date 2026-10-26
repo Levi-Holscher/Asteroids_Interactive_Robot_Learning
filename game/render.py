@@ -8,6 +8,7 @@ import config
 
 BG = (14, 16, 26)
 FIELD_BG = (22, 25, 40)
+OUTSIDE_BG = (17, 19, 30)     # visible area beyond the walls
 WALL = (200, 70, 70)
 GOAL = (70, 210, 120)
 GATE_WALL = (200, 70, 70)
@@ -41,38 +42,61 @@ class Renderer:
     def __init__(self, settings, caption="Asteroid Field"):
         self.s = settings
         self.ppu = config.PIXELS_PER_UNIT
-        self.W, self.H = settings["FIELD_WIDTH"], settings["FIELD_HEIGHT"]
-        self.field_px = (int(self.W * self.ppu), int(self.H * self.ppu))
-        self.size = (self.field_px[0] + 2 * MARGIN + config.HUD_WIDTH,
-                     self.field_px[1] + 2 * MARGIN)
         pygame.display.set_caption(caption)
+        self._layout()
         self.screen = pygame.display.set_mode(self.size)
         self.font = pygame.font.Font(None, 24)
         self.font_small = pygame.font.Font(None, 20)
         self.font_big = pygame.font.Font(None, 44)
-        self.hud_x = self.field_px[0] + 2 * MARGIN + 10
+
+    def _layout(self):
+        s = self.s
+        self.W, self.H = s["FIELD_WIDTH"], s["FIELD_HEIGHT"]
+        self.vm = s.get("VIEW_MARGIN_FRAC", 0.0) * self.W
+        ppu = self.ppu
+        self.view_px = (int((self.W + 2 * self.vm) * ppu), int((self.H + 2 * self.vm) * ppu))
+        self.field_rect = pygame.Rect(self.to_px(0, self.H),
+                                      (int(self.W * ppu), int(self.H * ppu)))
+        self.view_rect = pygame.Rect(MARGIN, MARGIN, *self.view_px)
+        self.size = (self.view_px[0] + 2 * MARGIN + config.HUD_WIDTH,
+                     self.view_px[1] + 2 * MARGIN)
+        self.hud_x = self.view_px[0] + 2 * MARGIN + 10
 
     def set_settings(self, settings):
         self.s = settings
+        old = self.size
+        self._layout()
+        if self.size != old:
+            self.screen = pygame.display.set_mode(self.size)
 
     # -- coordinates ---------------------------------------------------------
     def to_px(self, x, y):
-        return (int(MARGIN + x * self.ppu), int(MARGIN + (self.H - y) * self.ppu))
+        return (int(MARGIN + (x + self.vm) * self.ppu),
+                int(MARGIN + (self.H + self.vm - y) * self.ppu))
 
     # -- field ---------------------------------------------------------------
     def draw_field(self):
+        """Background: the visible margin, the playfield, and its grid."""
         self.screen.fill(BG)
-        fx, fy = self.field_px
-        pygame.draw.rect(self.screen, FIELD_BG, (MARGIN, MARGIN, fx, fy))
+        pygame.draw.rect(self.screen, OUTSIDE_BG, self.view_rect)
+        pygame.draw.rect(self.screen, GRID, self.view_rect, 1)
+        fr = self.field_rect
+        pygame.draw.rect(self.screen, FIELD_BG, fr)
         step = 0.25
-        n = int(self.W / step)
-        for i in range(1, n):
+        for i in range(1, int(self.W / step) + 1):
             x = self.to_px(i * step, 0)[0]
-            pygame.draw.line(self.screen, GRID, (x, MARGIN), (x, MARGIN + fy))
-        n = int(self.H / step)
-        for i in range(1, n):
+            if x < fr.right:
+                pygame.draw.line(self.screen, GRID, (x, fr.top), (x, fr.bottom))
+        for i in range(1, int(self.H / step) + 1):
             y = self.to_px(0, i * step)[1]
-            pygame.draw.line(self.screen, GRID, (MARGIN, y), (MARGIN + fx, y))
+            if y > fr.top:
+                pygame.draw.line(self.screen, GRID, (fr.left, y), (fr.right, y))
+        sx, sy = self.s["START_POS"]
+        pygame.draw.circle(self.screen, GRID, self.to_px(sx, sy),
+                           int(self.s["SHIP_RADIUS"] * self.ppu * 1.8), 1)
+
+    def draw_walls(self):
+        """Walls and goal - drawn after the asteroids so they stay visible."""
         tl, tr = self.to_px(0, self.H), self.to_px(self.W, self.H)
         bl, br = self.to_px(0, 0), self.to_px(self.W, 0)
         pygame.draw.line(self.screen, WALL, tl, bl, 4)
@@ -88,14 +112,10 @@ class Renderer:
             pygame.draw.line(self.screen, GATE_WALL, tl, g0, 4)
             pygame.draw.line(self.screen, GATE_WALL, g1, tr, 4)
             pygame.draw.line(self.screen, GOAL, g0, g1, 8)
-        sx, sy = self.s["START_POS"]
-        pygame.draw.circle(self.screen, GRID, self.to_px(sx, sy),
-                           int(self.s["SHIP_RADIUS"] * self.ppu * 1.8), 1)
 
     # -- objects -------------------------------------------------------------
     def _clip(self):
-        fx, fy = self.field_px
-        self.screen.set_clip(pygame.Rect(MARGIN, MARGIN, fx, fy))
+        self.screen.set_clip(self.view_rect)
 
     def draw_asteroids(self, asteroids, show_ids=False):
         self._clip()
@@ -162,10 +182,10 @@ class Renderer:
             y += 24 if f is self.font else 20
 
     def overlay(self, title, lines, title_color=TEXT):
-        fx, fy = self.field_px
-        panel = pygame.Surface((fx - 60, 60 + 28 * len(lines)), pygame.SRCALPHA)
+        fr = self.field_rect
+        panel = pygame.Surface((max(fr.width, 380), 60 + 28 * len(lines)), pygame.SRCALPHA)
         panel.fill((10, 12, 20, 215))
-        rect = panel.get_rect(center=(MARGIN + fx // 2, MARGIN + fy // 2))
+        rect = panel.get_rect(center=fr.center)
         self.screen.blit(panel, rect)
         self.text(title, (rect.centerx, rect.top + 30), title_color, self.font_big, center=True)
         for i, ln in enumerate(lines):
