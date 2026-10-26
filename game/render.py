@@ -17,6 +17,7 @@ SHIP_INVULN = (255, 210, 80)
 FLAME = (255, 150, 40)
 ASTEROID = (150, 140, 130)
 ASTEROID_EDGE = (95, 88, 80)
+ASTEROID_SPENT = (60, 58, 62)
 TEXT = (225, 228, 240)
 DIM = (140, 145, 165)
 GOOD = (110, 225, 140)
@@ -101,8 +102,12 @@ class Renderer:
         for a in asteroids:
             p = self.to_px(a["x"], a["y"])
             r = max(2, int(a["r"] * self.ppu))
-            pygame.draw.circle(self.screen, ASTEROID, p, r)
-            pygame.draw.circle(self.screen, ASTEROID_EDGE, p, r, 2)
+            if a.get("spent"):      # already hit the ship: harmless, drawn dim
+                pygame.draw.circle(self.screen, ASTEROID_SPENT, p, r)
+                pygame.draw.circle(self.screen, ASTEROID_EDGE, p, r, 1)
+            else:
+                pygame.draw.circle(self.screen, ASTEROID, p, r)
+                pygame.draw.circle(self.screen, ASTEROID_EDGE, p, r, 2)
             if show_ids:
                 t = self.font_small.render(str(a["id"]), True, TEXT)
                 self.screen.blit(t, t.get_rect(center=p))

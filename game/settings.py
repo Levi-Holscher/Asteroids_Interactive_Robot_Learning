@@ -13,17 +13,17 @@ _KEYS = [
     "ROTATION_MODE", "ROTATE_STEP_DEG", "ROTATE_STEP_TICKS", "ROTATE_REPEAT_TICKS",
     "ROTATE_RATE_DEG", "ROTATE_ACCEL_DEG", "ROTATE_MAX_RATE_DEG",
     "FUEL_PER_THRUST_SECOND", "FUEL_PER_ROTATE_STEP", "FUEL_PER_ROTATE_SECOND",
-    "INVULN_TIME", "DESTROY_ASTEROID_ON_HIT",
+    "INVULN_TIME",
     "W_TIME", "W_FUEL", "REF_TIME", "REF_FUEL",
     "DIFFICULTIES", "DEFAULT_DIFFICULTY", "START_SAFE_RADIUS", "VERTICAL_SPEED_FRAC",
-    "ASTEROID_DESPAWN_MARGIN",
+    "ASTEROID_DESPAWN_MARGIN", "ASTEROID_COLLISIONS", "ASTEROID_RESTITUTION",
 ]
 
 
 def default_settings(**overrides):
     """Return a dict of game settings from config.py, with optional overrides.
 
-    Example: default_settings(SPEED_CAP_ENABLED=False, GOAL_GATE=(1.0, 0.5))
+    Example: default_settings(SPEED_CAP_ENABLED=False, GOAL_GATE=(0.8, 0.5))
     """
     s = {k: copy.deepcopy(getattr(config, k)) for k in _KEYS}
     for k, v in overrides.items():

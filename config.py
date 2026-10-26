@@ -1,7 +1,7 @@
 """
 All tunable game settings live here.
 
-Units: the field is measured in "world units" (wu). Default field is 2.0 wide x 2.0 tall,
+Units: the field is measured in "world units" (wu). Default field is 1.6 wide x 3.0 tall,
 (0, 0) is the bottom-left corner, +y is up. Time is in seconds. Angles are in degrees
 in this file (0 deg = pointing right, 90 deg = pointing up, counter-clockwise positive).
 
@@ -18,9 +18,9 @@ MAX_EPISODE_TIME = 60.0      # seconds before the run ends as a timeout (loss)
 # ----------------------------------------------------------------------------
 # Field
 # ----------------------------------------------------------------------------
-FIELD_WIDTH = 2.0
-FIELD_HEIGHT = 2.0
-START_POS = (1.0, 0.15)      # ship always starts here (x, y)
+FIELD_WIDTH = 1.6
+FIELD_HEIGHT = 3.0
+START_POS = (0.8, 0.15)      # ship always starts here (x, y)
 START_HEADING_RANDOM = True  # random 0-360 deg start heading
 START_HEADING_DEG = 90.0     # used when START_HEADING_RANDOM is False
 
@@ -29,8 +29,8 @@ START_HEADING_DEG = 90.0     # used when START_HEADING_RANDOM is False
 #   (center_x, w)   -> only a gate of width w centered at center_x is the goal;
 #                      touching the top edge outside the gate counts as out of bounds
 GOAL_GATE = None
-# GOAL_GATE = (1.0, 0.6)     # example: centered gate, 0.6 wu wide
-# GOAL_GATE = (1.4, 0.5)     # example: offset gate
+# GOAL_GATE = (0.8, 0.5)     # example: centered gate, 0.5 wu wide
+# GOAL_GATE = (1.15, 0.4)    # example: offset gate
 
 # Edges that end the run as "out of bounds" when touched
 BOTTOM_IS_WALL = True        # left and right are always walls
@@ -38,10 +38,10 @@ BOTTOM_IS_WALL = True        # left and right are always walls
 # ----------------------------------------------------------------------------
 # Ship
 # ----------------------------------------------------------------------------
-SHIP_RADIUS = 0.035          # collision radius (wu)
-THRUST_ACCEL = 0.30          # wu/s^2 while thrust is held
+SHIP_RADIUS = 0.030          # collision radius (wu)
+THRUST_ACCEL = 0.35          # wu/s^2 while thrust is held
 SPEED_CAP_ENABLED = True     # toggle in-game with M (between runs)
-MAX_SPEED = 0.35             # wu/s; ~5-6 s straight shot bottom->top at full speed
+MAX_SPEED = 0.42             # wu/s; ~7.3 s straight shot bottom->top at full speed
 LINEAR_DRAG = 0.0            # per-second velocity damping (0 = none, 0.3 = noticeable)
 
 # Rotation mode:
@@ -70,17 +70,18 @@ FUEL_PER_ROTATE_SECOND = 0.25  # continuous / momentum modes: cost while a rotat
 # Hits and scoring
 # ----------------------------------------------------------------------------
 INVULN_TIME = 1.0            # seconds of invulnerability after an asteroid hit
-DESTROY_ASTEROID_ON_HIT = True
+# An asteroid that hits the ship becomes "spent": harmless and drawn dim, but it keeps
+# moving and bouncing so the field plays out the same for everyone on a seed.
 
 # Ranking: successful runs always beat failed runs. Among successes, fewer hits is always
 # better (hit "tiers"). Within a tier, lower score is better:
 #   score = W_TIME * time / REF_TIME + W_FUEL * fuel / REF_FUEL
 # REF_* are "typical" values so the two terms are about the same size; tune later.
 # Note: with the speed cap on, a fuel-efficient run is "burn to cruise speed, then coast",
-# so typical fuel is ~1-3 while typical time is ~6-10 s.
+# so typical fuel is ~1-3 while typical time is ~8-12 s.
 W_TIME = 0.5
 W_FUEL = 0.5
-REF_TIME = 8.0
+REF_TIME = 10.0
 REF_FUEL = 2.0
 
 # ----------------------------------------------------------------------------
@@ -92,30 +93,32 @@ REF_FUEL = 2.0
 # seed always produces the same asteroids.
 DIFFICULTIES = {
     "easy": dict(
-        n_start=8, spawn_per_sec=0.8,
+        n_start=20, spawn_per_sec=1.6,
         speed_min=0.08, speed_max=0.20, accel_max=0.02,
-        radius_min=0.05, radius_max=0.09, top_spawn_frac=0.15,
+        radius_min=0.025, radius_max=0.050, top_spawn_frac=0.15,
     ),
     "medium": dict(
-        n_start=14, spawn_per_sec=1.5,
-        speed_min=0.10, speed_max=0.28, accel_max=0.04,
-        radius_min=0.04, radius_max=0.09, top_spawn_frac=0.2,
+        n_start=32, spawn_per_sec=2.8,
+        speed_min=0.10, speed_max=0.28, accel_max=0.03,
+        radius_min=0.022, radius_max=0.055, top_spawn_frac=0.2,
     ),
     "hard": dict(
-        n_start=22, spawn_per_sec=2.5,
-        speed_min=0.12, speed_max=0.38, accel_max=0.06,
-        radius_min=0.035, radius_max=0.10, top_spawn_frac=0.25,
+        n_start=48, spawn_per_sec=4.5,
+        speed_min=0.12, speed_max=0.36, accel_max=0.04,
+        radius_min=0.020, radius_max=0.060, top_spawn_frac=0.25,
     ),
 }
 DEFAULT_DIFFICULTY = "medium"
 START_SAFE_RADIUS = 0.35     # no asteroid starts within this distance of START_POS
 VERTICAL_SPEED_FRAC = 0.35   # side spawns: max vertical speed as a fraction of horizontal
 ASTEROID_DESPAWN_MARGIN = 0.3  # removed once this far outside the field
+ASTEROID_COLLISIONS = True   # asteroids bounce off each other
+ASTEROID_RESTITUTION = 1.0   # 1.0 = perfectly elastic bounce, 0.5 = loses energy
 
 # ----------------------------------------------------------------------------
 # Display
 # ----------------------------------------------------------------------------
-PIXELS_PER_UNIT = 340        # window field size = FIELD * this
+PIXELS_PER_UNIT = 260        # window field size = FIELD * this (lower it if the window is too tall)
 HUD_WIDTH = 260              # px panel on the right
 SHOW_ASTEROID_IDS = False
 SHOW_VELOCITY_VECTOR = True

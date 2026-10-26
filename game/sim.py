@@ -17,7 +17,7 @@ from typing import List, Optional
 
 from game.settings import default_settings
 
-GAME_VERSION = "0.1.0"
+GAME_VERSION = "0.2.0"
 
 # Outcomes
 RUNNING = "running"
@@ -43,29 +43,28 @@ ACTIONS = [Action(t, th) for th in (False, True) for t in (-1, 0, 1)]
 class Asteroid:
     id: int
     t0: float            # time created (s)
-    x0: float
-    y0: float
+    x: float
+    y: float
     vx: float
     vy: float
-    ax: float
+    ax: float            # constant acceleration (wu/s^2)
     ay: float
     r: float
-    alive: bool = True
+    spent: bool = False  # True once it has hit the ship: harmless, but still bounces
 
-    def pos(self, t):
-        dt = t - self.t0
-        return (self.x0 + self.vx * dt + 0.5 * self.ax * dt * dt,
-                self.y0 + self.vy * dt + 0.5 * self.ay * dt * dt)
-
-    def vel(self, t):
-        dt = t - self.t0
-        return (self.vx + self.ax * dt, self.vy + self.ay * dt)
+    @property
+    def mass(self):
+        return self.r * self.r   # disks of equal density -> mass ~ area
 
 
 class AsteroidField:
-    """Generates asteroids from a seed. The sequence depends only on the seed and
-    difficulty - never on what the ship does (hits remove asteroids but never touch
-    the random number generator)."""
+    """Generates and moves asteroids from a seed.
+
+    Asteroids move with constant acceleration and bounce off each other (elastic
+    collisions, mass ~ area). Everything here depends only on the seed and difficulty -
+    never on what the ship does. An asteroid that hits the ship is marked "spent"
+    (harmless, drawn dim) but stays in the physics, so the rest of the field still plays
+    out identically for every player on the same seed."""
 
     def __init__(self, seed, diff, s):
         self.rng = random.Random(seed)
@@ -90,16 +89,19 @@ class AsteroidField:
     def _speed(self):
         return self.rng.uniform(self.d["speed_min"], self.d["speed_max"])
 
+    def _overlaps(self, x, y, r, gap=0.01):
+        return any(math.hypot(a.x - x, a.y - y) < a.r + r + gap for a in self.asteroids)
+
     def _initial_field(self):
         sx, sy = self.s["START_POS"]
         safe = self.s["START_SAFE_RADIUS"]
         placed, tries = 0, 0
-        while placed < self.d["n_start"] and tries < 10000:
+        while placed < self.d["n_start"] and tries < 20000:
             tries += 1
             r = self._radius()
             x = self.rng.uniform(r, self.W - r)
             y = self.rng.uniform(r, self.H - r)
-            if math.hypot(x - sx, y - sy) < safe + r:
+            if math.hypot(x - sx, y - sy) < safe + r or self._overlaps(x, y, r):
                 continue
             vx, vy, ax, ay = self._side_motion(self.rng.choice((-1, 1)))
             self._new(0.0, x, y, vx, vy, ax, ay, r)
@@ -117,9 +119,8 @@ class AsteroidField:
         return vx, vy, ax, ay
 
     def spawn_tick(self, t):
-        """Called once per tick with the new time. Poisson spawns from the edges."""
+        """Poisson spawns from the edges (called once per tick)."""
         lam = self.d["spawn_per_sec"] * self.dt
-        # Poisson sample (Knuth) - fine for small lambda
         n, p, L = 0, 1.0, math.exp(-lam)
         while True:
             p *= self.rng.random()
@@ -139,23 +140,74 @@ class AsteroidField:
             else:
                 side = self.rng.choice((-1, 1))   # -1 = from left edge, +1 = from right edge
                 x = -r if side == -1 else self.W + r
-                y = self.rng.uniform(0.3 * self.H, self.H - r)
+                y = self.rng.uniform(0.25 * self.H, self.H - r)
                 vx, vy, ax, ay = self._side_motion(-side)  # move into the field
                 self._new(t, x, y, vx, vy, ax, ay, r)
 
-    def despawn(self, t):
-        m = self.s["ASTEROID_DESPAWN_MARGIN"]
-        keep = []
+    def move(self):
+        """Advance every asteroid one tick (semi-implicit Euler), then resolve bounces."""
+        dt = self.dt
         for a in self.asteroids:
-            if not a.alive:
-                continue
-            x, y = a.pos(t)
-            if -m - a.r <= x <= self.W + m + a.r and -m - a.r <= y <= self.H + m + a.r:
-                keep.append(a)
-        self.asteroids = keep
+            a.vx += a.ax * dt
+            a.vy += a.ay * dt
+            a.x += a.vx * dt
+            a.y += a.vy * dt
+        if self.s["ASTEROID_COLLISIONS"]:
+            self._collide()
+
+    def _collide(self):
+        """Sort-and-sweep along x so we only test nearby pairs, then resolve each
+        overlapping pair: push apart (split by inverse mass) and apply an elastic
+        impulse if they are moving toward each other."""
+        e = self.s["ASTEROID_RESTITUTION"]
+        if not self.asteroids:
+            return
+        rmax = max(a.r for a in self.asteroids)
+        for _ in range(3):          # extra passes only if a pass found contacts
+            ast = sorted(self.asteroids, key=lambda a: a.x)
+            n = len(ast)
+            found = False
+            for i in range(n):
+                a = ast[i]
+                reach = a.x + a.r + rmax
+                for j in range(i + 1, n):
+                    b = ast[j]
+                    if b.x > reach:
+                        break
+                    dx, dy = b.x - a.x, b.y - a.y
+                    rr = a.r + b.r
+                    if dy > rr or dy < -rr:
+                        continue
+                    d2 = dx * dx + dy * dy
+                    if d2 >= rr * rr:
+                        continue
+                    found = True
+                    d = math.sqrt(d2) or 1e-9
+                    nx, ny = dx / d, dy / d
+                    ima, imb = 1.0 / a.mass, 1.0 / b.mass
+                    k = (rr - d) / (ima + imb)
+                    a.x -= nx * k * ima
+                    a.y -= ny * k * ima
+                    b.x += nx * k * imb
+                    b.y += ny * k * imb
+                    vrel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny
+                    if vrel > 0:
+                        jimp = (1 + e) * vrel / (ima + imb)
+                        a.vx -= jimp * ima * nx
+                        a.vy -= jimp * ima * ny
+                        b.vx += jimp * imb * nx
+                        b.vy += jimp * imb * ny
+            if not found:
+                break
+
+    def despawn(self):
+        m = self.s["ASTEROID_DESPAWN_MARGIN"]
+        self.asteroids = [a for a in self.asteroids
+                          if -m - a.r <= a.x <= self.W + m + a.r
+                          and -m - a.r <= a.y <= self.H + m + a.r]
 
     def active(self):
-        return [a for a in self.asteroids if a.alive]
+        return self.asteroids
 
 
 # ----------------------------------------------------------------------------
@@ -201,6 +253,11 @@ class AsteroidGame:
         s = self.s
         self.dt = 1.0 / s["TICK_HZ"]
         self.W, self.H = s["FIELD_WIDTH"], s["FIELD_HEIGHT"]
+        if s["GOAL_GATE"] is not None:
+            cx, w = s["GOAL_GATE"]
+            if cx - w / 2 < 0 or cx + w / 2 > self.W:
+                raise ValueError(f"GOAL_GATE {s['GOAL_GATE']} doesn't fit in a field "
+                                 f"{self.W} wide")
         self.field = AsteroidField(self.seed, s["DIFFICULTIES"][self.difficulty], s)
         # Start heading comes from its own RNG so it is fixed per seed too.
         hrng = random.Random(f"heading-{self.seed}")
@@ -327,8 +384,9 @@ class AsteroidGame:
         # 3. advance time and the asteroid field
         self.tick += 1
         self.t = self.tick * dt
-        self.field.spawn_tick(self.t)
-        self.field.despawn(self.t)
+        self.field.spawn_tick(self.t)   # new rocks enter at the edges...
+        self.field.move()               # ...then everything moves and bounces
+        self.field.despawn()
 
         # 4. goal / walls
         r = s["SHIP_RADIUS"]
@@ -343,16 +401,14 @@ class AsteroidGame:
         if not self.invulnerable():
             touching = []
             for a in self.field.active():
-                ax, ay = a.pos(self.t)
-                if math.hypot(ax - sh.x, ay - sh.y) <= a.r + r:
+                if not a.spent and math.hypot(a.x - sh.x, a.y - sh.y) <= a.r + r:
                     touching.append(a)
             if touching:
                 self.hits += 1
                 self.invuln_until = self.t + s["INVULN_TIME"]
                 events.append("hit")
-                if s["DESTROY_ASTEROID_ON_HIT"]:
-                    for a in touching:
-                        a.alive = False
+                for a in touching:
+                    a.spent = True
 
         # 6. timeout
         if not self.done and self.t >= s["MAX_EPISODE_TIME"]:
@@ -378,9 +434,8 @@ class AsteroidGame:
             "hits": self.hits,
             "invulnerable": self.invulnerable(),
             "asteroids": [
-                {"id": a.id, "x": p[0], "y": p[1], "vx": v[0], "vy": v[1],
-                 "ax": a.ax, "ay": a.ay, "r": a.r}
+                {"id": a.id, "x": a.x, "y": a.y, "vx": a.vx, "vy": a.vy,
+                 "ax": a.ax, "ay": a.ay, "r": a.r, "spent": a.spent}
                 for a in self.field.active()
-                for p, v in [(a.pos(self.t), a.vel(self.t))]
             ],
         }

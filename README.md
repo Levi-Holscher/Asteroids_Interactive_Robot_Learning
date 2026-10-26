@@ -39,17 +39,19 @@ python play.py --no-record                    # just practise
 - **Win:** cross the green goal at the top (the whole top edge, or a gate if one is set).
 - **Out of bounds (loss):** touching the left, right, or bottom wall, or the top wall outside a gate.
 - **Timeout (loss):** 60 s.
-- **Asteroid hit:** doesn't end the run. The asteroid is destroyed, you get 1 s of
-  invulnerability (the ship blinks yellow), and your hit count goes up.
+- **Asteroid hit:** doesn't end the run. Your hit count goes up, you get 1 s of
+  invulnerability (the ship blinks yellow), and that asteroid turns dark and harmless. It
+  keeps moving and bouncing, so the rest of the field plays out the same for everyone.
 - **Ranking:** wins beat losses → fewer hits always beat more hits (hit "tiers") → lower score.
-  `score = 0.5·time/8 + 0.5·fuel/2` (weights and reference values are in `config.py`).
+  `score = 0.5·time/10 + 0.5·fuel/2` (weights and reference values are in `config.py`).
 - **Fuel** = seconds of main-thruster burn, plus a small cost per rotation step.
-- **Physics:** constant thrust, no gravity, no mass, optional drag. The speed cap is on
-  by default; a straight full-speed crossing takes about 6 s. Asteroids move with
-  constant acceleration (`p = p0 + v·t + ½·a·t²`) and keep streaming in from the
-  sides and the top.
+- **Field:** 1.6 wide × 3.0 tall.
+- **Physics:** constant thrust, no gravity, no ship mass, optional drag. The speed cap is
+  on by default; a straight full-speed crossing takes about 7.3 s. Asteroids move with
+  constant acceleration, keep streaming in from the sides and the top, and **bounce off
+  each other** (elastic collisions, mass ∝ area). The ship doesn't push asteroids.
 - **Same seed = same asteroids**, regardless of what the player does, so humans and bots
-  can be compared on identical fields.
+  can be compared on identical fields. Asteroid motion doesn't depend on the ship at all.
 
 ## Tuning
 
@@ -66,7 +68,7 @@ Python, with no server to install.
 - `episodes` table: player, seed, difficulty, the full settings used, outcome, time, fuel, hits, score
 - `steps` table: one row per tick with the ship state, the action taken that tick
   (`action_turn` −1/0/+1, `action_thrust` 0/1), the raw keys, and every asteroid's
-  position, velocity, acceleration and radius (JSON)
+  position, velocity, acceleration, radius and `spent` flag (JSON)
 
 ```bash
 python replay.py --list          # list recorded runs
@@ -98,13 +100,19 @@ game/settings.py     settings snapshot / overrides
 tests/test_sim.py    python -m pytest -q
 ```
 
-Driving the game from code (about 4000× real time with no window):
+Driving the game from code (roughly 800–2000× real time with no window, depending on difficulty):
 
 ```python
 from game import AsteroidGame, Action, ACTIONS, default_settings
 g = AsteroidGame(seed=1, difficulty="medium",
-                 settings=default_settings(GOAL_GATE=(1.0, 0.6)))
+                 settings=default_settings(GOAL_GATE=(0.8, 0.5)))
 while not g.done:
     g.step(Action(turn=0, thrust=True))     # turn: +1 left, -1 right, 0 none
 print(g.outcome, g.hits, g.t, g.fuel, g.score())
 ```
+
+## Version history
+
+- **0.2.0**: field 1.6 × 3.0 (taller, narrower); more, smaller asteroids; asteroids bounce
+  off each other; hit asteroids become harmless "spent" rocks instead of disappearing.
+- **0.1.0**: first playable version.

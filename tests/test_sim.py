@@ -19,27 +19,48 @@ def empty_settings(**kw):
     return s
 
 
-def asteroid_signature(g):
-    return [(a.id, round(a.x0, 9), round(a.y0, 9), round(a.t0, 9)) for a in g.field.asteroids]
-
-
 def test_field_is_deterministic_and_independent_of_actions():
     g1 = AsteroidGame(seed=42, difficulty="hard")
     g2 = AsteroidGame(seed=42, difficulty="hard")
-    seen1, seen2 = set(), set()
-    for i in range(200):
+    for i in range(150):
         g1.step(Action(0, False))
         g2.step(Action(1 if i % 3 else -1, i % 2 == 0))  # very different play
-        seen1 |= {(a.id, a.x0, a.y0, a.t0) for a in g1.field.asteroids}
-        seen2 |= {(a.id, a.x0, a.y0, a.t0) for a in g2.field.asteroids}
+        p1 = [(a.id, a.x, a.y, a.vx, a.vy) for a in g1.field.asteroids]
+        p2 = [(a.id, a.x, a.y, a.vx, a.vy) for a in g2.field.asteroids]
+        assert p1 == p2          # hits only mark asteroids "spent"; motion is identical
         if g1.done or g2.done:
             break
-    # every asteroid that exists in both runs is identical (hits only remove asteroids)
-    common = {x[0] for x in seen1} & {x[0] for x in seen2}
-    d1 = {x[0]: x for x in seen1}
-    d2 = {x[0]: x for x in seen2}
-    assert common and all(d1[i] == d2[i] for i in common)
     assert math.isclose(AsteroidGame(seed=42).ship.heading, AsteroidGame(seed=42).ship.heading)
+
+
+def test_asteroids_bounce_elastically_and_do_not_overlap():
+    s = empty_settings()
+    g = AsteroidGame(seed=1, settings=s)
+    a = g.field._new(0.0, 0.5, 2.0, 0.2, 0.0, 0.0, 0.0, 0.05)
+    b = g.field._new(0.0, 0.7, 2.0, -0.2, 0.0, 0.0, 0.0, 0.05)
+    p0 = a.mass * a.vx + b.mass * b.vx
+    e0 = a.mass * a.vx ** 2 + b.mass * b.vx ** 2
+    for _ in range(40):
+        g.step(Action())
+        assert math.hypot(a.x - b.x, a.y - b.y) >= a.r + b.r - 1e-9
+    assert a.vx < 0 < b.vx                         # they bounced apart
+    assert math.isclose(a.mass * a.vx + b.mass * b.vx, p0, abs_tol=1e-9)
+    assert math.isclose(a.mass * a.vx ** 2 + b.mass * b.vx ** 2, e0, rel_tol=1e-9)
+
+
+def test_no_overlaps_in_a_busy_field():
+    g = AsteroidGame(seed=3, difficulty="hard")
+    worst = 0.0
+    for _ in range(200):
+        g.step(Action())
+        ast = g.field.asteroids
+        for i in range(len(ast)):
+            for j in range(i + 1, len(ast)):
+                a, b = ast[i], ast[j]
+                worst = max(worst, a.r + b.r - math.hypot(a.x - b.x, a.y - b.y))
+        if g.done:
+            break
+    assert worst < 0.01      # at most a hair of overlap in rare 3-way pile-ups
 
 
 def test_step_rotation_exact_and_no_momentum():
@@ -96,12 +117,12 @@ def test_side_wall_is_out_of_bounds():
 
 
 def test_gate_miss_is_out_and_hit_is_win():
-    s = empty_settings(START_HEADING_RANDOM=False, START_HEADING_DEG=90.0, GOAL_GATE=(1.6, 0.3))
+    s = empty_settings(START_HEADING_RANDOM=False, START_HEADING_DEG=90.0, GOAL_GATE=(1.35, 0.3))
     g = AsteroidGame(seed=1, settings=s)
     while not g.done:
         g.step(Action(thrust=True))
     assert g.outcome == OUT_OF_BOUNDS
-    s = empty_settings(START_HEADING_RANDOM=False, START_HEADING_DEG=90.0, GOAL_GATE=(1.0, 0.3))
+    s = empty_settings(START_HEADING_RANDOM=False, START_HEADING_DEG=90.0, GOAL_GATE=(0.8, 0.3))
     g = AsteroidGame(seed=1, settings=s)
     while not g.done:
         g.step(Action(thrust=True))
@@ -112,12 +133,12 @@ def test_hit_counts_once_with_invulnerability():
     s = empty_settings(START_HEADING_RANDOM=False, START_HEADING_DEG=90.0)
     g = AsteroidGame(seed=1, settings=s)
     # park two overlapping asteroids right on the ship
-    g.field._new(0.0, 1.0, 0.15, 0, 0, 0, 0, 0.05)
-    g.field._new(0.0, 1.0, 0.20, 0, 0, 0, 0, 0.05)
+    g.field._new(0.0, 0.8, 0.12, 0, 0, 0, 0, 0.05)
+    g.field._new(0.0, 0.8, 0.22, 0, 0, 0, 0, 0.05)
     g.step(Action())
     assert g.hits == 1 and g.invulnerable()
-    assert not g.field.active()          # both destroyed
-    g.field._new(g.t, 1.0, 0.15, 0, 0, 0, 0, 0.05)
+    assert all(a.spent for a in g.field.active())   # both marked harmless
+    g.field._new(g.t, 0.8, 0.15, 0, 0, 0, 0, 0.05)
     g.step(Action())
     assert g.hits == 1                   # still invulnerable
 
