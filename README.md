@@ -113,8 +113,54 @@ while not g.done:
 print(g.outcome, g.hits, g.t, g.fuel, g.score())
 ```
 
+## Dodge Run (second game)
+
+A simpler variant for the "which method wins which game" comparison. The ship sits near
+the bottom and can only slide left/right while asteroids fall from the top (same
+asteroid physics and look as the main game). Survive 30 s with as few hits as possible.
+Score = hits; time spent moving is tracked and recorded but not scored (moving is how you
+dodge, so less isn't necessarily better).
+
+```bash
+python play_dodge.py --player levi            # records to data/dodge_demos.sqlite
+python replay.py --db data/dodge_demos.sqlite --list
+python replay.py --db data/dodge_demos.sqlite --episode 1
+```
+
+Keys: LEFT/RIGHT move, P pause, R retry, N new field, 1/2/3 difficulty,
+M movement mode (direct = no momentum, the default / momentum).
+Settings live in `dodge_config.py`; logic in `game/dodge.py` (`DodgeGame`, same
+`Action` type: `turn=+1` slide left, `-1` slide right, `0` stay; 3 actions in `DODGE_ACTIONS`).
+
+Why it should favor behavior cloning: the right move depends only on what's on screen
+right now, there's no momentum, and touching a wall just stops you, so a mistake
+doesn't snowball into worse situations later.
+
+## Lattice Gate (grid version)
+
+The grid version for classic inverse RL (Abbeel & Ng). The ship moves one cell per turn
+on a 9 × 15 grid; asteroids slide along horizontal lanes at fixed speeds and wrap around,
+so the whole game is a small, fully predictable grid world. Reach the gate in the top
+wall; the gate's position changes from field to field. Light rows are safe.
+
+```bash
+python play_grid.py --player levi            # records to data/grid_demos.sqlite
+python play_grid.py --list
+python play_grid.py --replay 1
+```
+
+Keys: arrows move, SPACE waits a turn, R retry, N new field, 1/2/3 difficulty,
+T switches turn-based (default: one move per key press) / real-time (4 moves per second).
+Score: wins first, then fewer hits, then fewer turns.
+Settings live in `grid_config.py`; logic in `game/grid.py` (`GridGame`, actions
+`STAY, UP, DOWN, LEFT, RIGHT` = 0–4). `game.occupied(col, row, turn)` gives exact
+asteroid positions at any future turn, and `game.shortest_safe_path()` is a
+breadth-first-search oracle that returns the fewest-turn hit-free route.
+
 ## Version history
 
+- **grid-0.1.0**: added Lattice Gate (`play_grid.py`).
+- **dodge-0.1.0**: added Dodge Run (`play_dodge.py`).
 - **0.3.0**: visible margin around the walls (asteroids are seen before they enter);
   about 30% more asteroids at every difficulty.
 - **0.2.0**: field 1.6 × 3.0 (taller, narrower); more, smaller asteroids; asteroids bounce

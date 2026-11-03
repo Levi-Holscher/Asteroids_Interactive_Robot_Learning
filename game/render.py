@@ -19,6 +19,7 @@ FLAME = (255, 150, 40)
 ASTEROID = (150, 140, 130)
 ASTEROID_EDGE = (95, 88, 80)
 ASTEROID_SPENT = (60, 58, 62)
+LANE = (55, 62, 92)
 TEXT = (225, 228, 240)
 DIM = (140, 145, 165)
 GOOD = (110, 225, 140)
@@ -82,7 +83,7 @@ class Renderer:
         pygame.draw.rect(self.screen, GRID, self.view_rect, 1)
         fr = self.field_rect
         pygame.draw.rect(self.screen, FIELD_BG, fr)
-        step = 0.25
+        step = self.s.get("GRID_STEP", 0.25)
         for i in range(1, int(self.W / step) + 1):
             x = self.to_px(i * step, 0)[0]
             if x < fr.right:
@@ -99,6 +100,15 @@ class Renderer:
         """Walls and goal - drawn after the asteroids so they stay visible."""
         tl, tr = self.to_px(0, self.H), self.to_px(self.W, self.H)
         bl, br = self.to_px(0, 0), self.to_px(self.W, 0)
+        if self.s.get("GAME") == "dodge":
+            # Dodge Run: side walls only, plus a faint line along the ship's lane
+            pygame.draw.line(self.screen, DIM, tl, tr, 1)
+            pygame.draw.line(self.screen, DIM, bl, br, 1)
+            pygame.draw.line(self.screen, WALL, tl, bl, 4)
+            pygame.draw.line(self.screen, WALL, tr, br, 4)
+            y = self.s["SHIP_Y"]
+            pygame.draw.line(self.screen, LANE, self.to_px(0, y), self.to_px(self.W, y), 1)
+            return
         pygame.draw.line(self.screen, WALL, tl, bl, 4)
         pygame.draw.line(self.screen, WALL, tr, br, 4)
         bottom_color = WALL if self.s["BOTTOM_IS_WALL"] else DIM
@@ -180,6 +190,14 @@ class Renderer:
             f = self.font_small if c == DIM else self.font
             self.text(s, (self.hud_x, y), c, f)
             y += 24 if f is self.font else 20
+
+    def bar(self, frac, y, color=GOOD, width=200, height=10):
+        """Horizontal progress bar in the HUD column."""
+        frac = max(0.0, min(1.0, frac))
+        x = self.hud_x
+        pygame.draw.rect(self.screen, GRID, (x, y, width, height))
+        pygame.draw.rect(self.screen, color, (x, y, int(width * frac), height))
+        pygame.draw.rect(self.screen, DIM, (x, y, width, height), 1)
 
     def overlay(self, title, lines, title_color=TEXT):
         fr = self.field_rect
