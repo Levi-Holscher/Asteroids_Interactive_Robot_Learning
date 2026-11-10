@@ -1,7 +1,7 @@
 """
 Play the asteroid-field game with the keyboard (and record demos).
 
-    python play.py --player levi
+    python play.py --player levi          # records to data/demos_levi.sqlite
     python play.py --player levi --difficulty hard --seed 123
     python play.py --no-record
 
@@ -18,7 +18,7 @@ from collections import deque
 import pygame
 
 import config
-from game.recorder import Recorder
+from game.recorder import Recorder, demo_db_path
 from game.seeds import is_reserved, random_demo_seed
 from game.render import BAD, DIM, GOOD, TEXT, Renderer, interpolate_state
 from game.settings import default_settings
@@ -259,7 +259,7 @@ def main(argv=None):
     ap.add_argument("--difficulty", choices=["easy", "medium", "hard"])
     ap.add_argument("--seed", type=int, help="field seed (same seed = same asteroids)")
     ap.add_argument("--no-record", action="store_true", help="don't save runs to the database")
-    ap.add_argument("--db", default=config.DB_PATH, help="database file")
+    ap.add_argument("--db", help="database file (default: data/demos_<player>.sqlite)")
     args = ap.parse_args(argv)
     if not config.RECORD_BY_DEFAULT:
         args.no_record = True
@@ -273,6 +273,10 @@ def main(argv=None):
             args.player = input("Player name: ").strip() or "anonymous"
         except EOFError:
             args.player = "anonymous"
+    if not args.db:
+        args.db = demo_db_path(args.player)
+    if not args.no_record:
+        print(f"Recording to {args.db}")
     App(args).run()
 
 

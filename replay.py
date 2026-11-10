@@ -1,9 +1,11 @@
 """
 Watch a recorded run.
 
-    python replay.py --list              # show recorded episodes
-    python replay.py                     # replay the most recent episode
-    python replay.py --episode 12
+    python replay.py --player levi --list    # show levi's recorded episodes
+    python replay.py --player levi           # replay levi's most recent episode
+    python replay.py --player levi --episode 12
+    python replay.py                         # most recent episode in the newest demo file
+    python replay.py --db data/demos.sqlite --list   # any database file
 
 Controls: SPACE pause/play   LEFT/RIGHT step one tick (when paused)
           UP/DOWN speed x2 / x0.5   HOME restart   ESC quit
@@ -13,13 +15,14 @@ still play back correctly after the game code changes.
 """
 
 import argparse
+import os
 import sqlite3
 import sys
 
 import pygame
 
 import config
-from game.recorder import load_episode
+from game.recorder import load_episode, resolve_demo_db
 from game.render import BAD, DIM, GOOD, TEXT, Renderer, interpolate_state
 
 
@@ -50,10 +53,16 @@ def to_state(step):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--db", default=config.DB_PATH)
+    ap.add_argument("--player", help="replay this player's file, data/demos_<player>.sqlite")
+    ap.add_argument("--db", help="database file (overrides --player)")
     ap.add_argument("--episode", type=int)
     ap.add_argument("--list", action="store_true")
     args = ap.parse_args(argv)
+    args.db = resolve_demo_db(args.db, args.player)
+    if not os.path.exists(args.db):
+        print(f"No demo file at {args.db} (nothing recorded yet?)")
+        return 1
+    print(f"Reading {args.db}")
 
     if args.list:
         list_episodes(args.db)

@@ -145,5 +145,12 @@ SHOW_VELOCITY_VECTOR = True
 # Recording
 # ----------------------------------------------------------------------------
 import os as _os
-DB_PATH = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "data", "demos.sqlite")
+DATA_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "data")
+# Each player records into their own file, data/demos_<player>.sqlite (see game/recorder.py),
+# so teammates never edit the same file. DB_PATH is the old shared file (early test runs).
+DB_PATH = _os.path.join(DATA_DIR, "demos.sqlite")
 RECORD_BY_DEFAULT = True
+# Recorded asteroid positions/velocities are rounded to this many decimals and compressed.
+# 3 -> at most 0.0005 wu error (0.1 pixel, 1/60 of the ship radius); ~0.20 MB per 10 s run,
+# ~10x smaller than full precision. 2 would put errors at ~1 pixel; don't go below 3.
+RECORD_DECIMALS = 3

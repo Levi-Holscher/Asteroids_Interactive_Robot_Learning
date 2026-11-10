@@ -29,10 +29,16 @@ Work is split into three lanes so all three people can work at once. Lanes not y
 "Waits on" = must finish first. "(later: X)" = a stand-in is used until X delivers real data.
 
 Data & humans
-- D1: per-person demo files `data/demos_<name>.sqlite` — nothing
+- D1: per-person demo files `data/demos_<name>.sqlite` — nothing (done; how to share the
+  files between laptops is still open, see Environment)
 - D2: held-out test seed list in `config.py`; `play.py` refuses to record on them — nothing
   (done: seeds ≥ 900,000 reserved; `TEST_SEEDS` and `VALIDATION_SEEDS`, 100 each)
-- D3: game tweaks the team agrees on — nothing
+- D3: game tweaks the team agrees on — nothing. Proposed (not built yet, needs team OK):
+  (a) field thins from ~43 to ~30 asteroids in the first 10 s (start is denser than the
+  spawn rate sustains; side spawns skip the bottom 25%): fix with a ~10 s warm-up before
+  t = 0, a configurable side-spawn height (~5%), then tune spawn_per_sec;
+  (b) remove asteroid acceleration (barely visible; makes t*/d_min exact): accel_max = 0
+  in every difficulty, no code change. Do these before recording real demos.
 - D4: written recording plan (difficulty, runs per person, practice runs discarded) — nothing
 - D5: marking tool v1: pause replay, click asteroids, save
   (episode_id, tick, asteroid_id, relevant) to `data/marks_<name>.sqlite` — nothing
@@ -117,13 +123,16 @@ Optional/reach: human-in-the-loop corrections during training; recovering a rewa
   actions. `turn`: +1 = rotate left (CCW), -1 = right, 0 = none. No pygame here.
 - `game/settings.py`: `default_settings(**overrides)` snapshot of config.py.
 - `game/recorder.py`: SQLite recording (`episodes`, `steps` tables) + `load_episode()`.
+  One file per player: `demo_db_path(player)` → `data/demos_<player>.sqlite`;
+  `find_demo_dbs()` lists them all (the old shared `data/demos.sqlite` = early test runs).
+  Always read recordings through `load_episode()`, which decodes both storage formats.
   Refuses to record on held-out seeds (`held_out_seeds=False` turns that off; Dodge Run does).
 - `game/seeds.py`: held-out seeds. Every seed ≥ `config.RESERVED_SEED_START` (900,000) is
   for evaluation only; `random_demo_seed()` picks a safe one. Tune on `VALIDATION_SEEDS`;
   use `TEST_SEEDS` once, for the final comparison.
 - `game/render.py`: shared pygame drawing (Renderer); `play.py` / `replay.py` use it.
-- `play.py`: keyboard play + recording (arrows rotate, SPACE thrust). `replay.py --list`
-  / `--episode N`. `export_csv.py` dumps the DB to CSV. `bot_example.py`: headless loop.
+- `play.py --player <name>`: keyboard play + recording (arrows rotate, SPACE thrust).
+  `replay.py --player <name> --list` / `--episode N` (or `--db <file>`). `export_csv.py` dumps the DB to CSV. `bot_example.py`: headless loop.
 - Second game **Dodge Run**: `dodge_config.py`, `game/dodge.py` (`DodgeGame`, 3 actions,
   same `Action` type: turn +1 = slide left), `play_dodge.py`, DB `data/dodge_demos.sqlite`.
   Score = hits only; movement is tracked but not scored.
@@ -154,6 +163,10 @@ Optional/reach: human-in-the-loop corrections during training; recovering a rewa
   `pygame-ce` instead of `pygame`). `pip install -r requirements.txt`.
 - Teammates work on different machines and sync through GitHub
   (Levi-Holscher/Asteroids_Interactive_Robot_Learning). Run `git pull` before starting.
+- Demo files use a compact recording format (positions rounded to 3 decimals, compressed,
+  radius/acceleration stored once per asteroid): ~0.20 MB per 10 s run, ~10x smaller than
+  the old format, which `load_episode()` still reads. They are binary, so git can't merge
+  them; per-player files avoid that. GitHub rejects files over 100 MB.
 - PowerShell 5 doesn't support `&&`; give commands one per line.
 
 ## Working style for this repo
