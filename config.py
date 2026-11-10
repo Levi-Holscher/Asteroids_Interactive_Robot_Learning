@@ -122,6 +122,18 @@ ASTEROID_COLLISIONS = True   # asteroids bounce off each other
 ASTEROID_RESTITUTION = 1.0   # 1.0 = perfectly elastic bounce, 0.5 = loses energy
 
 # ----------------------------------------------------------------------------
+# Held-out seeds (never used for human or bot demos; see game/seeds.py)
+# ----------------------------------------------------------------------------
+# Every seed >= RESERVED_SEED_START is off limits for recording, so no pilot is ever
+# evaluated on a field it learned from. Demos use seeds 0 .. RESERVED_SEED_START - 1.
+RESERVED_SEED_START = 900_000
+# Tuning (choosing k, training length, network size, ...) uses VALIDATION_SEEDS only.
+VALIDATION_SEEDS = list(range(950_000, 950_100))
+# The final comparison for the paper uses TEST_SEEDS, once, at the end.
+# 100 seeds -> about +/- 10 percentage points on a success rate (95% confidence).
+TEST_SEEDS = list(range(900_000, 900_100))
+
+# ----------------------------------------------------------------------------
 # Display
 # ----------------------------------------------------------------------------
 PIXELS_PER_UNIT = 210        # window size = (FIELD + 2*margin) * this (lower it if the window is too tall)

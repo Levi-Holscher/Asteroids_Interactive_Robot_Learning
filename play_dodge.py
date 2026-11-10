@@ -45,7 +45,7 @@ class App:
         self.seed = args.seed if args.seed is not None else random.randrange(1_000_000)
         self.renderer = Renderer(self.settings, caption="Dodge Run")
         self.clock = pygame.time.Clock()
-        self.recorder = None if args.no_record else Recorder(args.db)
+        self.recorder = None if args.no_record else Recorder(args.db, held_out_seeds=False)
         self.new_game()
 
     # -- game lifecycle ------------------------------------------------------

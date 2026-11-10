@@ -31,6 +31,7 @@ Work is split into three lanes so all three people can work at once. Lanes not y
 Data & humans
 - D1: per-person demo files `data/demos_<name>.sqlite` — nothing
 - D2: held-out test seed list in `config.py`; `play.py` refuses to record on them — nothing
+  (done: seeds ≥ 900,000 reserved; `TEST_SEEDS` and `VALIDATION_SEEDS`, 100 each)
 - D3: game tweaks the team agrees on — nothing
 - D4: written recording plan (difficulty, runs per person, practice runs discarded) — nothing
 - D5: marking tool v1: pause replay, click asteroids, save
@@ -116,6 +117,10 @@ Optional/reach: human-in-the-loop corrections during training; recovering a rewa
   actions. `turn`: +1 = rotate left (CCW), -1 = right, 0 = none. No pygame here.
 - `game/settings.py`: `default_settings(**overrides)` snapshot of config.py.
 - `game/recorder.py`: SQLite recording (`episodes`, `steps` tables) + `load_episode()`.
+  Refuses to record on held-out seeds (`held_out_seeds=False` turns that off; Dodge Run does).
+- `game/seeds.py`: held-out seeds. Every seed ≥ `config.RESERVED_SEED_START` (900,000) is
+  for evaluation only; `random_demo_seed()` picks a safe one. Tune on `VALIDATION_SEEDS`;
+  use `TEST_SEEDS` once, for the final comparison.
 - `game/render.py`: shared pygame drawing (Renderer); `play.py` / `replay.py` use it.
 - `play.py`: keyboard play + recording (arrows rotate, SPACE thrust). `replay.py --list`
   / `--episode N`. `export_csv.py` dumps the DB to CSV. `bot_example.py`: headless loop.

@@ -22,6 +22,8 @@ import os
 import sqlite3
 import time
 
+from game.seeds import check_demo_seed
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS episodes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +65,10 @@ CREATE TABLE IF NOT EXISTS steps (
 
 
 class Recorder:
-    def __init__(self, path):
+    def __init__(self, path, held_out_seeds=True):
+        """held_out_seeds=True refuses to record on seeds reserved for evaluation
+        (see game/seeds.py). Only the main asteroid game needs this."""
+        self.held_out_seeds = held_out_seeds
         d = os.path.dirname(path)
         if d:
             os.makedirs(d, exist_ok=True)
@@ -73,6 +78,8 @@ class Recorder:
         self._rows = []
 
     def start_episode(self, game, player, game_version, notes=None):
+        if self.held_out_seeds:
+            check_demo_seed(game.seed)   # never record on held-out evaluation seeds
         cur = self.con.execute(
             "INSERT INTO episodes (player, started_at, game_version, seed, difficulty,"
             " settings_json, outcome, notes) VALUES (?,?,?,?,?,?,?,?)",

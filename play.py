@@ -12,7 +12,6 @@ Between runs:  R retry same field  N new field  1/2/3 difficulty  M speed cap on
 
 import argparse
 import math
-import random
 import sys
 from collections import deque
 
@@ -20,6 +19,7 @@ import pygame
 
 import config
 from game.recorder import Recorder
+from game.seeds import is_reserved, random_demo_seed
 from game.render import BAD, DIM, GOOD, TEXT, Renderer, interpolate_state
 from game.settings import default_settings
 from game.sim import (GAME_VERSION, OUT_OF_BOUNDS, TIMEOUT, WIN, Action,
@@ -52,7 +52,7 @@ class App:
         self.player = args.player
         self.settings = default_settings()
         self.difficulty = args.difficulty or self.settings["DEFAULT_DIFFICULTY"]
-        self.seed = args.seed if args.seed is not None else random.randrange(1_000_000)
+        self.seed = args.seed if args.seed is not None else random_demo_seed()
         self.renderer = Renderer(self.settings)
         self.clock = pygame.time.Clock()
         self.recorder = None if args.no_record else Recorder(args.db)
@@ -112,7 +112,7 @@ class App:
                 if k == pygame.K_r:
                     self.new_game()
                 elif k == pygame.K_n:
-                    self.seed = random.randrange(1_000_000)
+                    self.seed = random_demo_seed()
                     self.new_game()
                 elif k in (pygame.K_1, pygame.K_2, pygame.K_3):
                     self.difficulty = ["easy", "medium", "hard"][k - pygame.K_1]
@@ -263,6 +263,11 @@ def main(argv=None):
     args = ap.parse_args(argv)
     if not config.RECORD_BY_DEFAULT:
         args.no_record = True
+    if args.seed is not None and is_reserved(args.seed) and not args.no_record:
+        print(f"Seed {args.seed} is held out for evaluation (seeds >= "
+              f"{config.RESERVED_SEED_START:,}) and can't be recorded.\n"
+              f"Pick a lower seed, or add --no-record to just play it.")
+        return 2
     if not args.player:
         try:
             args.player = input("Player name: ").strip() or "anonymous"
