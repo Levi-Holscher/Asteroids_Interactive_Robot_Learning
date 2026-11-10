@@ -13,11 +13,11 @@ Work is split into three lanes so all three people can work at once. Lanes not y
 |---|---|---|
 | Data & humans | TBD | game tweaks, held-out test seeds, demo recording, freeze-frame marking tool, marking sessions |
 | Pilot | TBD | Gym environment wrapper, behavior cloning warm-start pilot, GAIL/AIRL if time allows, evaluation script |
-| Focus | TBD | feature extractor, focus model, pruning rules (focus / closest / soonest / random) |
+| Focus | TBD | observation builder, focus model, pruning rules (focus / closest / soonest / random) |
 
 - Levi is newer to CS and git: explain commands and changes step by step, with diagrams
   where helpful, before doing them.
-- To avoid waiting on each other: agree on the feature extractor's output format first, then
+- To avoid waiting on each other: agree on the observation builder's output format first, then
   use stand-ins until real data exists (bot demos for the pilot, rule-based fake marks for
   the focus model).
 - Git workflow: never commit straight to `main`. One branch per piece of work, named
@@ -40,18 +40,20 @@ Data & humans
 - D8: ~30 frames marked by 2+ people to measure human agreement — D5
 
 Pilot
-- P1: Gym environment wrapper (reset(seed), step(action) → features, reward, done) — F1
+- P1: Gym environment wrapper (reset(seed), step(action) → observation, reward, done) — F1
 - P2: bot demo generator → `data/demos_bot.sqlite` — nothing
-- P3: demo loader: all demo files → (features, action) arrays — F1
-- P4: behavior cloning pilot on masked features — P2, P3 (later: D7)
+- P3: demo loader: all demo files → (observation, action) arrays — F1
+- P4: behavior cloning pilot on masked observations — P2, P3 (later: D7)
 - P5: evaluation script on the held-out seeds, 95% CIs — P1, D2
 - P6: learning curves vs number of demos / training time — P4, P5
 - P7 (reach): GAIL / AIRL via the `imitation` library — P1, P4
 
 Focus
-- F1: feature contract: function signature, array shapes, docstring, shape-correct stub.
-  Do first; the pilot lane codes against it — nothing
-- F2: real features (t*, d_min, walls) + tests — F1
+- F1: observation contract: function signature, array shapes, docstring, shape-correct stub.
+  Do first; the pilot lane codes against it — nothing (done: `game/observation.py`)
+- F2: real observation values (t*, d_min, wall gaps) + tests. Also measure how often a
+  would-hit asteroid (d_min ≤ 0 within the horizon) is dropped because it isn't in the K
+  nearest; if not near 0%, change the slot order (e.g. would-hit asteroids first) — F1
 - F3: rule-based fake marks (e.g. relevant if d_min < threshold) — F2
 - F4: pruning rules (all / closest / soonest-to-hit / random) that set the mask — F1
 - F5: focus model (logistic regression first) — F2, F3 (later: D7)
@@ -60,13 +62,16 @@ Focus
 
 Final: X: comparison runs for the paper — P4, P5, F7
 
-### Draft feature contract (F1 owner finalizes)
+### Observation contract (F1, full details in the `game/observation.py` docstring)
 
-`extract_features(state, settings, K=10)` returns `ship` (7,), `ast` (K, 8) sorted nearest
-first with columns dx, dy, dvx, dvy, r, t*, d_min, distance (all relative to the ship),
-`mask` (K,) with 1 = real asteroid, 0 = padding, and `ids` (K,) with -1 for padding. Spent
-asteroids are excluded. Pruning only zeroes entries of `mask`, so the same pilot code runs in
-every condition.
+Called "observation" (not "features") to avoid confusion with the hand-made reward features
+of inverse RL methods. `build_observation(state, settings, K=20, horizon=2.5)` returns an
+`Observation` with `ship` (8,): vx, vy, cos_h, sin_h, gap_left/right/bottom/top; `ast`
+(K, 8) sorted nearest first: dx, dy, dvx, dvy, r, t_star, d_min, gap (relative to the ship;
+gaps/d_min are edge-to-edge, ≤ 0 = touching/will hit); `mask` (K,) int8, 1 = visible; `ids` (K,)
+-1 = empty slot. Spent asteroids are excluded. Pruning only zeroes `mask` via `with_mask()`;
+`flatten()` gives the pilot one vector. K and horizon live in `config.py` (OBS_*), not in the
+recorded game settings.
 
 ## The research question (from the revised proposal)
 
@@ -89,7 +94,7 @@ interventions).
   each. Metrics: hits, success rate, training time. Paper + presentation.
 
 ### Planned pipeline (build in this order)
-1. **Feature extractor**: per-asteroid features relative to the ship (relative position,
+1. **Observation builder**: per-asteroid values relative to the ship (relative position,
    relative velocity, radius, time of closest approach t* and miss distance d_min over a
    short horizon ~2-3 s) + ship state (velocity, heading, wall/goal distances).
    Pad to a fixed K slots with an "is real" flag when fewer asteroids exist.
@@ -100,7 +105,7 @@ interventions).
    needs to pick ONE name/method and use it consistently.
 4. **Freeze-frame marking tool**: reuse `replay.py`; pause, click asteroids → store
    (episode_id, tick, asteroid_id, relevant 0/1) in a new table/database.
-5. **Focus model**: predicts per-asteroid relevance from the features, trained on the marks.
+5. **Focus model**: predicts per-asteroid relevance from the observation rows, trained on the marks.
    Check agreement with held-out human marks.
 6. **Pruned pilots**: pilot sees only the top-k asteroids (k = 1, 2, 3, maybe 5) chosen by:
    focus model / closest / soonest-to-hit / random, plus the see-everything baseline.
@@ -116,6 +121,8 @@ Optional/reach: human-in-the-loop corrections during training; recovering a rewa
   actions. `turn`: +1 = rotate left (CCW), -1 = right, 0 = none. No pygame here.
 - `game/settings.py`: `default_settings(**overrides)` snapshot of config.py.
 - `game/recorder.py`: SQLite recording (`episodes`, `steps` tables) + `load_episode()`.
+- `game/observation.py`: `build_observation()`, `with_mask()`, `flatten()`: what the
+  learning pilot sees (contract above).
 - `game/render.py`: shared pygame drawing (Renderer); `play.py` / `replay.py` use it.
 - `play.py`: keyboard play + recording (arrows rotate, SPACE thrust). `replay.py --list`
   / `--episode N`. `export_csv.py` dumps the DB to CSV. `bot_example.py`: headless loop.
@@ -127,7 +134,7 @@ Optional/reach: human-in-the-loop corrections during training; recovering a rewa
   `GridRecorder`), `play_grid.py` (`--list`, `--replay N`), DB `data/grid_demos.sqlite`.
 - Current project focus is the **main asteroid game**; Dodge Run and Lattice Gate are kept
   but not part of the current proposal.
-- `tests/`: `python -m pytest -q` (31 tests at last count). Keep them passing; add tests
+- `tests/`: `python -m pytest -q` (43 tests at last count). Keep them passing; add tests
   for new code.
 
 ## Important behaviors / invariants
@@ -139,8 +146,8 @@ Optional/reach: human-in-the-loop corrections during training; recovering a rewa
 - Hits don't end a run (1 s invulnerability). Out of bounds (side/bottom walls) or a timeout
   are losses; crossing the top (or a gate) is a win.
 - Recorded runs store their full settings JSON, so replays stay valid after code changes.
-- Hand-picked features should be computed from recorded raw states (asteroid x, y, vx, vy,
-  ax, ay, r, spent), so old demos can be reprocessed when features change.
+- Observations are computed from recorded raw states (asteroid x, y, vx, vy, ax, ay, r,
+  spent), so old demos can be reprocessed when the observation builder changes.
 - The headless sim runs roughly 300-1000× real time, so CPU is enough; no GPU needed.
 
 ## Environment
