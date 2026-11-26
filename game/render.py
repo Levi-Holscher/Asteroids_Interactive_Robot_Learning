@@ -75,6 +75,10 @@ class Renderer:
         return (int(MARGIN + (x + self.vm) * self.ppu),
                 int(MARGIN + (self.H + self.vm - y) * self.ppu))
 
+    def to_world(self, px, py):
+        """Screen pixel -> world point (the reverse of to_px), e.g. for mouse clicks."""
+        return (px - MARGIN) / self.ppu - self.vm, self.H + self.vm - (py - MARGIN) / self.ppu
+
     # -- field ---------------------------------------------------------------
     def draw_field(self):
         """Background: the visible margin, the playfield, and its grid."""
@@ -141,6 +145,15 @@ class Renderer:
             if show_ids:
                 t = self.font_small.render(str(a["id"]), True, TEXT)
                 self.screen.blit(t, t.get_rect(center=p))
+        self.screen.set_clip(None)
+
+    def draw_rings(self, asteroids, ids, color, width=3):
+        """A ring around each asteroid whose id is in `ids` (e.g. marked as relevant)."""
+        self._clip()
+        for a in asteroids:
+            if a["id"] in ids:
+                r = max(2, int(a["r"] * self.ppu)) + 4
+                pygame.draw.circle(self.screen, color, self.to_px(a["x"], a["y"]), r, width)
         self.screen.set_clip(None)
 
     def draw_trail(self, trail):

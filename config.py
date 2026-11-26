@@ -149,6 +149,7 @@ PIXELS_PER_UNIT = 210        # window size = (FIELD + 2*margin) * this (lower it
 HUD_WIDTH = 260              # px panel on the right
 SHOW_ASTEROID_IDS = False
 SHOW_VELOCITY_VECTOR = True
+MARK_CLICK_PAD_PX = 6        # mark.py: a click this many pixels outside an asteroid still hits it
 
 # ----------------------------------------------------------------------------
 # Recording

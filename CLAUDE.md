@@ -42,6 +42,8 @@ Data & humans
 - D4: written recording plan (difficulty, runs per person, practice runs discarded) — nothing
 - D5: marking tool v1: pause replay, click asteroids, save
   (episode_id, tick, asteroid_id, relevant) to `data/marks_<name>.sqlite` — nothing
+  (done: `mark.py`. Each row also stores `demo_file`, since every demo file numbers its
+  episodes from 1, and `marker`. A saved frame stores every live asteroid, relevant 1/0)
 - D6: marking tool v2: auto-jump to frames worth marking, keyboard next/skip — D5
 - D7: collect 100 demo runs + 300 marked frames (everyone) — D1, D5
 - D8: ~30 frames marked by 2+ people to measure human agreement — D5
@@ -144,6 +146,11 @@ Optional/reach: human-in-the-loop corrections during training; recovering a rewa
 - `game/render.py`: shared pygame drawing (Renderer); `play.py` / `replay.py` use it.
 - `play.py --player <name>`: keyboard play + recording (arrows rotate, SPACE thrust).
   `replay.py --player <name> --list` / `--episode N` (or `--db <file>`). `export_csv.py` dumps the DB to CSV. `bot_example.py`: headless loop.
+- `mark.py --marker <you> --player <whose demos> --episode N`: freeze-frame marking. Pause,
+  click asteroids that matter, ENTER saves the frame (clicked = 1, every other live
+  asteroid = 0); unsaved clicks are dropped when you change tick. Logic lives in
+  `MarkSession` (no pygame, tested). Storage: `game/marks.py` (`MarkStore`,
+  `marks_db_path()`, `find_marks_dbs()`, `load_marks()`), one file per marker.
 - Second game **Dodge Run**: `dodge_config.py`, `game/dodge.py` (`DodgeGame`, 3 actions,
   same `Action` type: turn +1 = slide left), `play_dodge.py`, DB `data/dodge_demos.sqlite`.
   Score = hits only; movement is tracked but not scored.
@@ -152,7 +159,7 @@ Optional/reach: human-in-the-loop corrections during training; recovering a rewa
   `GridRecorder`), `play_grid.py` (`--list`, `--replay N`), DB `data/grid_demos.sqlite`.
 - Current project focus is the **main asteroid game**; Dodge Run and Lattice Gate are kept
   but not part of the current proposal.
-- `tests/`: `python -m pytest -q` (77 tests at last count). Keep them passing; add tests
+- `tests/`: `python -m pytest -q` (91 tests at last count). Keep them passing; add tests
   for new code.
 
 ## Important behaviors / invariants
