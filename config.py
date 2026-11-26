@@ -134,6 +134,15 @@ VALIDATION_SEEDS = list(range(950_000, 950_100))
 TEST_SEEDS = list(range(900_000, 900_100))
 
 # ----------------------------------------------------------------------------
+# Observation (what the learning pilot sees; see game/observation.py)
+# ----------------------------------------------------------------------------
+# These are NOT game settings and are not saved with recorded runs, so old demos can be
+# re-processed with different values.
+OBS_MAX_ASTEROIDS = 20       # K: asteroid slots, nearest first; extra asteroids are dropped.
+                             # 20 covers ~0.85 wu around the ship on medium (~9 rocks/wu^2)
+OBS_HORIZON = 2.5            # seconds of look-ahead for time of closest approach / miss distance
+
+# ----------------------------------------------------------------------------
 # Display
 # ----------------------------------------------------------------------------
 PIXELS_PER_UNIT = 210        # window size = (FIELD + 2*margin) * this (lower it if the window is too tall)
